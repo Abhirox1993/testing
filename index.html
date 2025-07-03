@@ -1,0 +1,1092 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Property Management</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.rawgit.com/davidshimjs/qrcodejs/gh-pages/qrcode.min.js"></script>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
+    <style>
+        body {
+            background-color: #f8f9fa;
+        }
+        .card {
+            box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+        }
+        .table th {
+            background-color: #f8f9fa;
+        }
+        .status-pending {
+            color: #dc3545;
+            font-weight: bold;
+        }
+        .status-not-pending {
+            color: #28a745;
+            font-weight: bold;
+        }
+        .status-paid {
+            color: #17a2b8;
+            font-weight: bold;
+        }
+        .status-vacant {
+            color: #6c757d;
+            font-weight: bold;
+        }
+        .payment-cash {
+            color: #28a745;
+            font-weight: bold;
+        }
+        .payment-cheque {
+            color: #007bff;
+            font-weight: bold;
+        }
+        .action-buttons {
+            white-space: nowrap;
+        }
+        .qr-code {
+            width: 80px;
+            height: 80px;
+            cursor: pointer;
+        }
+        .modal-qr {
+            text-align: center;
+            padding: 20px;
+        }
+        .month-selector {
+            max-width: 200px;
+        }
+        .import-instructions {
+            background-color: #f8f9fa;
+            border-radius: 5px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+        .import-template-link {
+            cursor: pointer;
+            color: #0d6efd;
+            text-decoration: underline;
+        }
+        .duplicate-error {
+            color: #dc3545;
+            font-size: 0.875rem;
+            margin-top: 0.25rem;
+            display: none;
+        }
+        .form-actions {
+            margin-top: 1rem;
+            padding-top: 1rem;
+            border-top: 1px solid #dee2e6;
+        }
+        /* Login Modal Styles */
+        #loginModal .modal-content {
+            border-radius: 10px;
+        }
+        #loginModal .modal-header {
+            border-bottom: none;
+            padding-bottom: 0;
+        }
+        #loginModal .modal-title {
+            font-weight: 600;
+        }
+        #loginForm {
+            padding: 0 20px;
+        }
+        #forgotPassword {
+            color: #6c757d;
+            text-decoration: none;
+        }
+        #forgotPassword:hover {
+            color: #0d6efd;
+        }
+        .navbar-brand {
+            font-weight: bold;
+        }
+        .logout-btn {
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <!-- Login Modal -->
+    <div class="modal fade" id="loginModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Login to Property Management</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="loginForm">
+                        <div class="mb-3">
+                            <label for="loginEmail" class="form-label">Email address</label>
+                            <input type="email" class="form-control" id="loginEmail" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="loginPassword" class="form-label">Password</label>
+                            <input type="password" class="form-control" id="loginPassword" required>
+                        </div>
+                        <div class="mb-3 form-check">
+                            <input type="checkbox" class="form-check-input" id="rememberMe">
+                            <label class="form-check-label" for="rememberMe">Remember me</label>
+                        </div>
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary">Login</button>
+                        </div>
+                    </form>
+                    <div class="text-center mt-3">
+                        <a href="#" id="forgotPassword">Forgot password?</a>
+                        <br>
+                        <a href="#" id="createAccountLink">Create new account</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Registration Modal -->
+    <div class="modal fade" id="registerModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Create New Account</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="registerForm">
+                        <div class="mb-3">
+                            <label for="registerEmail" class="form-label">Email address</label>
+                            <input type="email" class="form-control" id="registerEmail" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="registerPassword" class="form-label">Password</label>
+                            <input type="password" class="form-control" id="registerPassword" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="registerPassword2" class="form-label">Confirm Password</label>
+                            <input type="password" class="form-control" id="registerPassword2" required>
+                        </div>
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-success">Create Account</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary mb-4" id="mainNav" style="display: none;">
+        <div class="container">
+            <a class="navbar-brand" href="#">Property Management</a>
+            <div class="d-flex align-items-center">
+                <span class="text-white me-3" id="welcomeUser"></span>
+                <button class="btn btn-sm btn-light logout-btn" id="logoutBtn">Logout</button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content (will be moved to authWrapper) -->
+    <div class="container mt-3" id="mainContainer">
+        <h1 class="text-center mb-4">Property Management</h1>
+        
+        <!-- Add Property Form -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5>Add/Edit Property</h5>
+            </div>
+            <div class="card-body">
+                <form id="propertyForm">
+                    <input type="hidden" id="propertyId">
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label for="propertyName" class="form-label">Property Name*</label>
+                            <input type="text" class="form-control" id="propertyName" required>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <label for="monthlyRent" class="form-label">Monthly Rent*</label>
+                            <div class="input-group">
+                                <span class="input-group-text">QR</span>
+                                <input type="number" class="form-control" id="monthlyRent" min="0" step="0.01" required>
+                            </div>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <label for="status" class="form-label">Status*</label>
+                            <select class="form-select" id="status" required>
+                                <option value="">Select Status</option>
+                                <option value="Pending">Pending</option>
+                                <option value="Paid">Paid</option>
+                                <option value="Vacant">Vacant</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2 mb-3">
+                            <label for="paymentMethod" class="form-label">Payment Method</label>
+                            <select class="form-select" id="paymentMethod">
+                                <option value="">Select Method</option>
+                                <option value="CASH">CASH</option>
+                                <option value="CHEQUE">CHEQUE</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label for="month" class="form-label">Month*</label>
+                            <select class="form-select month-selector" id="month" required>
+                                <option value="">Select month</option>
+                                <option value="January">January</option>
+                                <option value="February">February</option>
+                                <option value="March">March</option>
+                                <option value="April">April</option>
+                                <option value="May">May</option>
+                                <option value="June">June</option>
+                                <option value="July">July</option>
+                                <option value="August">August</option>
+                                <option value="September">September</option>
+                                <option value="October">October</option>
+                                <option value="November">November</option>
+                                <option value="December">December</option>
+                            </select>
+                            <div class="duplicate-error" id="duplicateError">
+                                A property with this name already exists for the selected month!
+                            </div>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="selectProperty" class="form-label">Quick Select Property</label>
+                            <select class="form-select" id="selectProperty" onchange="fillPropertyForm(this.value)">
+                                <option value="">Select a property to edit</option>
+                                <!-- Options will be populated by JavaScript -->
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary me-2" id="saveBtn">Save</button>
+                        <button type="button" class="btn btn-outline-secondary" id="cancelEdit" style="display:none;">Cancel</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <!-- Import Section -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5>Import Properties</h5>
+            </div>
+            <div class="card-body">
+                <div class="import-instructions">
+                    <h6>How to import properties:</h6>
+                    <ol>
+                        <li>Download the <span class="import-template-link" onclick="downloadTemplate()">Excel template</span></li>
+                        <li>Fill in your property data</li>
+                        <li>Upload the file using the button below</li>
+                    </ol>
+                    <p class="mb-0"><small>Note: Importing will add new properties without deleting existing ones.</small></p>
+                </div>
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <button class="btn btn-outline-primary me-2" id="importBtn">Import Properties</button>
+                        <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" style="display: none;">
+                    </div>
+                    <div>
+                        <button class="btn btn-sm btn-outline-success me-2" id="exportExcelBtn">Export to Excel</button>
+                        <button class="btn btn-sm btn-outline-secondary" id="exportJsonBtn">Export to JSON</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Search and Property List -->
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5>Property List</h5>
+                <div class="d-flex">
+                    <input type="text" class="form-control me-2" id="searchInput" placeholder="Search properties...">
+                    <button class="btn btn-outline-danger" id="clearSearch">Clear</button>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover">
+                        <thead>
+                            <tr>
+                                <th>Property</th>
+                                <th>Rent</th>
+                                <th>Status</th>
+                                <th>Payment Method</th>
+                                <th>Month</th>
+                                <th>QR Code</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="propertyTable">
+                            <!-- Properties will be listed here -->
+                        </tbody>
+                    </table>
+                </div>
+                <div class="d-flex justify-content-between align-items-center mt-3">
+                    <div id="propertyCount">0 properties found</div>
+                    <div>
+                        <button class="btn btn-sm btn-outline-info" id="showAllBtn">Show All Properties</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- QR Code Modal -->
+    <div class="modal fade" id="qrModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-sm">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="qrModalLabel">Property QR Code</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body modal-qr">
+                    <div id="qrCodeDisplay"></div>
+                    <p class="mt-3" id="qrPropertyInfo"></p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-primary" id="downloadQR">Download</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Authentication state
+            let isAuthenticated = false;
+            let authToken = null;
+            let currentUser = null;
+
+            // DOM Elements
+            const authWrapper = document.createElement('div');
+            authWrapper.id = 'authWrapper';
+            authWrapper.style.display = 'none';
+            document.body.appendChild(authWrapper);
+
+            const mainContainer = document.getElementById('mainContainer');
+            authWrapper.appendChild(mainContainer);
+
+            const loginModal = new bootstrap.Modal(document.getElementById('loginModal'));
+            const loginForm = document.getElementById('loginForm');
+            const forgotPasswordLink = document.getElementById('forgotPassword');
+            const logoutBtn = document.getElementById('logoutBtn');
+            const mainNav = document.getElementById('mainNav');
+            const welcomeUser = document.getElementById('welcomeUser');
+
+            // Property Management Elements
+            const propertyForm = document.getElementById('propertyForm');
+            const propertyTable = document.getElementById('propertyTable');
+            const searchInput = document.getElementById('searchInput');
+            const clearSearchBtn = document.getElementById('clearSearch');
+            const cancelEditBtn = document.getElementById('cancelEdit');
+            const saveBtn = document.getElementById('saveBtn');
+            const exportExcelBtn = document.getElementById('exportExcelBtn');
+            const exportJsonBtn = document.getElementById('exportJsonBtn');
+            const importBtn = document.getElementById('importBtn');
+            const fileInput = document.getElementById('fileInput');
+            const propertyCount = document.getElementById('propertyCount');
+            const monthSelector = document.getElementById('month');
+            const selectProperty = document.getElementById('selectProperty');
+            const showAllBtn = document.getElementById('showAllBtn');
+            const qrModal = new bootstrap.Modal(document.getElementById('qrModal'));
+            const qrCodeDisplay = document.getElementById('qrCodeDisplay');
+            const qrPropertyInfo = document.getElementById('qrPropertyInfo');
+            const downloadQRBtn = document.getElementById('downloadQR');
+            const duplicateError = document.getElementById('duplicateError');
+            
+            let properties = JSON.parse(localStorage.getItem('properties')) || [];
+            let editId = null;
+            let currentFilter = null;
+            let currentQRCode = null;
+
+            // Initialize the app
+            init();
+
+            function init() {
+                setupEventListeners();
+                checkAuthentication();
+            }
+
+            // Authentication Functions
+            function checkAuthentication() {
+                const savedToken = localStorage.getItem('propertyAuthToken');
+                const rememberMe = localStorage.getItem('rememberMe') === 'true';
+                
+                if (savedToken && rememberMe) {
+                    verifyToken(savedToken)
+                        .then(valid => {
+                            if (valid) {
+                                isAuthenticated = true;
+                                authToken = savedToken;
+                                currentUser = JSON.parse(localStorage.getItem('currentUser'));
+                                showAuthenticatedUI();
+                                initializePropertyManagement();
+                            } else {
+                                showLoginModal();
+                            }
+                        })
+                        .catch(() => showLoginModal());
+                } else {
+                    showLoginModal();
+                }
+            }
+
+            function verifyToken(token) {
+                // In a real app, this would call your backend
+                return new Promise(resolve => {
+                    try {
+                        // Mock verification - in real app, call your backend
+                        const userData = JSON.parse(atob(token.split('.')[1]));
+                        resolve(!!userData.email);
+                    } catch {
+                        resolve(false);
+                    }
+                });
+            }
+
+            function showLoginModal() {
+                authWrapper.style.display = 'none';
+                mainNav.style.display = 'none';
+                loginModal.show();
+            }
+
+            function showAuthenticatedUI() {
+                authWrapper.style.display = 'block';
+                mainNav.style.display = 'flex';
+                welcomeUser.textContent = `Welcome, ${currentUser?.email || 'User'}`;
+                loginModal.hide();
+            }
+
+            function initializePropertyManagement() {
+                renderProperties();
+                updatePropertyDropdown();
+                monthSelector.focus();
+            }
+
+            // Login form submission
+            loginForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                const email = document.getElementById('loginEmail').value;
+                const password = document.getElementById('loginPassword').value;
+                const rememberMe = document.getElementById('rememberMe').checked;
+                
+                authenticateUser(email, password)
+                    .then(({ token, user }) => {
+                        authToken = token;
+                        isAuthenticated = true;
+                        currentUser = user;
+                        
+                        if (rememberMe) {
+                            localStorage.setItem('propertyAuthToken', token);
+                            localStorage.setItem('rememberMe', 'true');
+                            localStorage.setItem('currentUser', JSON.stringify(user));
+                        }
+                        
+                        showAuthenticatedUI();
+                        initializePropertyManagement();
+                    })
+                    .catch(error => {
+                        showAlert('Invalid email or password', 'danger');
+                    });
+            });
+
+            function authenticateUser(email, password) {
+                return new Promise((resolve, reject) => {
+                    // Get users from localStorage or use default
+                    let users = JSON.parse(localStorage.getItem('users')) || [
+                        { id: 1, email: 'admin@property.com', password: 'admin123', role: 'admin' },
+                        { id: 2, email: 'user@property.com', password: 'user123', role: 'user' }
+                    ];
+
+                    const user = users.find(u => u.email === email && u.password === password);
+
+                    if (user) {
+                        // Mock JWT token generation
+                        const token = btoa(JSON.stringify({
+                            userId: user.id || Date.now(),
+                            email: user.email,
+                            role: user.role || 'user'
+                        }));
+
+                        setTimeout(() => resolve({
+                            token,
+                            user: {
+                                id: user.id || Date.now(),
+                                email: user.email,
+                                role: user.role || 'user'
+                            }
+                        }), 500);
+                    } else {
+                        setTimeout(() => reject(new Error('Authentication failed')), 500);
+                    }
+                });
+            }
+
+            // Logout handler
+            logoutBtn.addEventListener('click', function() {
+                localStorage.removeItem('propertyAuthToken');
+                localStorage.removeItem('rememberMe');
+                localStorage.removeItem('currentUser');
+                isAuthenticated = false;
+                authToken = null;
+                currentUser = null;
+                showLoginModal();
+            });
+
+            // Forgot password handler
+            forgotPasswordLink.addEventListener('click', function(e) {
+                e.preventDefault();
+                const email = document.getElementById('loginEmail').value;
+                
+                if (!email) {
+                    showAlert('Please enter your email address first', 'warning');
+                    return;
+                }
+                
+                resetPassword(email)
+                    .then(() => {
+                        showAlert('Password reset instructions sent to your email', 'success');
+                    })
+                    .catch(() => {
+                        showAlert('Error sending reset instructions', 'danger');
+                    });
+            });
+
+            function resetPassword(email) {
+                // In a real app, this would call your backend
+                return new Promise(resolve => {
+                    setTimeout(() => resolve(), 1000);
+                });
+            }
+
+            // Property Management Functions
+            function setupEventListeners() {
+                // Authentication listeners
+                loginForm.addEventListener('submit', handleLoginSubmit);
+                forgotPasswordLink.addEventListener('click', handleForgotPassword);
+                logoutBtn.addEventListener('click', handleLogout);
+                
+                // Property management listeners
+                propertyForm.addEventListener('submit', handleFormSubmit);
+                searchInput.addEventListener('input', handleSearch);
+                clearSearchBtn.addEventListener('click', clearSearch);
+                cancelEditBtn.addEventListener('click', cancelEdit);
+                exportExcelBtn.addEventListener('click', exportToExcel);
+                exportJsonBtn.addEventListener('click', exportToJson);
+                importBtn.addEventListener('click', () => fileInput.click());
+                fileInput.addEventListener('change', importData);
+                monthSelector.addEventListener('change', filterByMonth);
+                downloadQRBtn.addEventListener('click', downloadQRCode);
+                showAllBtn.addEventListener('click', showAllProperties);
+                
+                document.getElementById('propertyName').addEventListener('change', checkForDuplicate);
+                monthSelector.addEventListener('change', checkForDuplicate);
+            }
+
+            function checkForDuplicate() {
+                const propertyName = document.getElementById('propertyName').value.trim();
+                const month = document.getElementById('month').value;
+                const propertyId = document.getElementById('propertyId').value;
+                
+                if (!propertyName || !month) {
+                    duplicateError.style.display = 'none';
+                    return;
+                }
+                
+                const isDuplicate = properties.some(property => 
+                    property.name.toLowerCase() === propertyName.toLowerCase() && 
+                    property.month === month &&
+                    property.id.toString() !== propertyId
+                );
+                
+                if (isDuplicate) {
+                    duplicateError.style.display = 'block';
+                    saveBtn.disabled = true;
+                } else {
+                    duplicateError.style.display = 'none';
+                    saveBtn.disabled = false;
+                }
+            }
+
+            function handleFormSubmit(e) {
+                e.preventDefault();
+                
+                const propertyName = document.getElementById('propertyName').value.trim();
+                const monthlyRent = parseFloat(document.getElementById('monthlyRent').value);
+                const status = document.getElementById('status').value;
+                const paymentMethod = document.getElementById('paymentMethod').value;
+                const month = document.getElementById('month').value;
+                
+                checkForDuplicate();
+                if (saveBtn.disabled) {
+                    return;
+                }
+                
+                if (editId !== null) {
+                    const index = properties.findIndex(p => p.id === editId);
+                    if (index !== -1) {
+                        properties[index] = {
+                            ...properties[index],
+                            name: propertyName,
+                            rent: monthlyRent,
+                            status: status,
+                            paymentMethod: paymentMethod,
+                            month: month,
+                            updatedAt: new Date().toISOString()
+                        };
+                        showAlert('Property updated successfully!', 'success');
+                    }
+                    cancelEdit();
+                } else {
+                    const newProperty = {
+                        id: Date.now(),
+                        name: propertyName,
+                        rent: monthlyRent,
+                        status: status,
+                        paymentMethod: paymentMethod,
+                        month: month,
+                        createdAt: new Date().toISOString(),
+                        updatedAt: new Date().toISOString()
+                    };
+                    properties.push(newProperty);
+                    showAlert('Property added successfully!', 'success');
+                }
+                
+                saveProperties();
+                propertyForm.reset();
+                monthSelector.value = '';
+                renderProperties(currentFilter);
+                updatePropertyDropdown();
+                monthSelector.focus();
+            }
+
+            function renderProperties(filteredProperties = null) {
+                const propertiesToRender = filteredProperties || properties;
+                
+                propertyTable.innerHTML = propertiesToRender.map(property => `
+                    <tr>
+                        <td>${property.name}</td>
+                        <td>${property.rent.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                        <td class="status-${property.status.toLowerCase().replace(' ', '-')}">${property.status}</td>
+                        <td class="${property.paymentMethod ? 'payment-' + property.paymentMethod.toLowerCase() : ''}">
+                            ${property.paymentMethod || '-'}
+                        </td>
+                        <td>${property.month || '-'}</td>
+                        <td>
+                            <div class="qr-code" data-id="${property.id}" 
+                                 data-info="${property.name} - ${property.rent} - ${property.status}">
+                                <div id="qr-${property.id}"></div>
+                            </div>
+                        </td>
+                        <td class="action-buttons">
+                            <button class="btn btn-sm btn-warning me-2 edit-btn" data-id="${property.id}">Edit</button>
+                            <button class="btn btn-sm btn-danger delete-btn" data-id="${property.id}">Delete</button>
+                        </td>
+                    </tr>
+                `).join('');
+
+                propertyCount.textContent = `${propertiesToRender.length} ${propertiesToRender.length === 1 ? 'property' : 'properties'} found`;
+                
+                document.querySelectorAll('.edit-btn').forEach(btn => {
+                    btn.addEventListener('click', () => handleEdit(parseInt(btn.getAttribute('data-id'))));
+                });
+                
+                document.querySelectorAll('.delete-btn').forEach(btn => {
+                    btn.addEventListener('click', () => handleDelete(parseInt(btn.getAttribute('data-id'))));
+                });
+
+                propertiesToRender.forEach(property => {
+                    const qrContainer = document.getElementById(`qr-${property.id}`);
+                    if (qrContainer) {
+                        qrContainer.innerHTML = '';
+                        new QRCode(qrContainer, {
+                            text: `${property.name}\n${property.rent}\nStatus: ${property.status}\nPayment: ${property.paymentMethod || 'Not specified'}\nMonth: ${property.month || 'Not specified'}`,
+                            width: 80,
+                            height: 80,
+                            colorDark: "#000000",
+                            colorLight: "#ffffff",
+                            correctLevel: QRCode.CorrectLevel.H
+                        });
+                    }
+                });
+
+                document.querySelectorAll('.qr-code').forEach(qr => {
+                    qr.addEventListener('click', () => showQRModal(
+                        parseInt(qr.getAttribute('data-id')),
+                        qr.getAttribute('data-info')
+                    ));
+                });
+            }
+
+            function updatePropertyDropdown() {
+                selectProperty.innerHTML = '<option value="">Select a property to edit</option>';
+                properties.forEach(property => {
+                    const option = document.createElement('option');
+                    option.value = property.id;
+                    option.textContent = `${property.name} (${property.month}) - QR ${property.rent}`;
+                    selectProperty.appendChild(option);
+                });
+            }
+
+            window.fillPropertyForm = function(propertyId) {
+                if (!propertyId) return;
+                const property = properties.find(p => p.id === parseInt(propertyId));
+                if (property) {
+                    handleEdit(property.id);
+                }
+            };
+
+            function showQRModal(id, info) {
+                const property = properties.find(p => p.id === id);
+                if (!property) return;
+                
+                qrCodeDisplay.innerHTML = '';
+                currentQRCode = new QRCode(qrCodeDisplay, {
+                    text: `${property.name}\n${property.rent}\nStatus: ${property.status}\nPayment: ${property.paymentMethod || 'Not specified'}\nMonth: ${property.month || 'Not specified'}`,
+                    width: 200,
+                    height: 200,
+                    colorDark: "#000000",
+                    colorLight: "#ffffff",
+                    correctLevel: QRCode.CorrectLevel.H
+                });
+                
+                qrPropertyInfo.textContent = info;
+                qrModal.show();
+            }
+
+            function downloadQRCode() {
+                const canvas = qrCodeDisplay.querySelector('canvas');
+                if (!canvas) return;
+                
+                const link = document.createElement('a');
+                link.download = `property-qr-${qrPropertyInfo.textContent.split(' - ')[0]}.png`;
+                link.href = canvas.toDataURL('image/png');
+                link.click();
+            }
+
+            function handleEdit(id) {
+                const property = properties.find(p => p.id === id);
+                
+                if (property) {
+                    document.getElementById('propertyId').value = property.id;
+                    document.getElementById('propertyName').value = property.name;
+                    document.getElementById('monthlyRent').value = property.rent;
+                    document.getElementById('status').value = property.status;
+                    document.getElementById('paymentMethod').value = property.paymentMethod || '';
+                    document.getElementById('month').value = property.month || '';
+                    document.getElementById('selectProperty').value = property.id;
+                    
+                    editId = property.id;
+                    saveBtn.textContent = 'Update';
+                    cancelEditBtn.style.display = 'inline-block';
+                    
+                    checkForDuplicate();
+                    document.getElementById('propertyForm').scrollIntoView({ behavior: 'smooth' });
+                }
+            }
+
+            function handleDelete(id) {
+                if (confirm('Are you sure you want to delete this property?')) {
+                    properties = properties.filter(p => p.id !== id);
+                    saveProperties();
+                    renderProperties(currentFilter);
+                    updatePropertyDropdown();
+                    
+                    if (editId === id) {
+                        cancelEdit();
+                    }
+                    
+                    showAlert('Property deleted successfully!', 'success');
+                }
+            }
+
+            function handleSearch() {
+                const searchTerm = this.value.toLowerCase();
+                currentFilter = properties.filter(property => 
+                    property.name.toLowerCase().includes(searchTerm) ||
+                    property.rent.toString().includes(searchTerm) ||
+                    property.status.toLowerCase().includes(searchTerm) ||
+                    (property.paymentMethod && property.paymentMethod.toLowerCase().includes(searchTerm)) ||
+                    (property.month && property.month.toLowerCase().includes(searchTerm))
+                );
+                renderProperties(currentFilter);
+            }
+
+            function filterByMonth() {
+                const month = this.value;
+                if (!month) {
+                    currentFilter = null;
+                    renderProperties();
+                    return;
+                }
+                
+                currentFilter = properties.filter(property => 
+                    property.month && property.month.toLowerCase() === month.toLowerCase()
+                );
+                renderProperties(currentFilter);
+            }
+
+            function clearSearch() {
+                searchInput.value = '';
+                monthSelector.value = '';
+                currentFilter = null;
+                renderProperties();
+            }
+
+            function showAllProperties() {
+                searchInput.value = '';
+                monthSelector.value = '';
+                currentFilter = null;
+                renderProperties();
+            }
+
+            function cancelEdit() {
+                propertyForm.reset();
+                monthSelector.value = '';
+                document.getElementById('selectProperty').value = '';
+                editId = null;
+                saveBtn.textContent = 'Save';
+                saveBtn.disabled = false;
+                duplicateError.style.display = 'none';
+                monthSelector.focus();
+            }
+
+            function saveProperties() {
+                localStorage.setItem('properties', JSON.stringify(properties));
+            }
+
+            function exportToExcel() {
+                const dataToExport = (currentFilter || properties).map(property => ({
+                    'Property Name': property.name,
+                    'Monthly Rent': property.rent,
+                    'Status': property.status,
+                    'Payment Method': property.paymentMethod || 'Not specified',
+                    'Month': property.month || 'Not specified',
+                    'Created At': new Date(property.createdAt).toLocaleString(),
+                    'Updated At': new Date(property.updatedAt).toLocaleString()
+                }));
+
+                const ws = XLSX.utils.json_to_sheet(dataToExport);
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, "Properties");
+                const fileName = `properties_${new Date().toISOString().slice(0,10)}.xlsx`;
+                XLSX.writeFile(wb, fileName);
+                
+                showAlert('Data exported to Excel successfully!', 'success');
+            }
+
+            function exportToJson() {
+                const dataStr = JSON.stringify(currentFilter || properties, null, 2);
+                const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+                const exportFileDefaultName = `properties-${new Date().toISOString().slice(0,10)}.json`;
+                const linkElement = document.createElement('a');
+                linkElement.setAttribute('href', dataUri);
+                linkElement.setAttribute('download', exportFileDefaultName);
+                linkElement.click();
+                
+                showAlert('Data exported to JSON successfully!', 'success');
+            }
+
+            window.downloadTemplate = function() {
+                const templateData = [
+                    {
+                        'Property Name': 'Example Property 1',
+                        'Monthly Rent': 5000,
+                        'Status': 'Pending',
+                        'Payment Method': 'CASH',
+                        'Month': 'January'
+                    },
+                    {
+                        'Property Name': 'Example Property 2',
+                        'Monthly Rent': 7500,
+                        'Status': 'Paid',
+                        'Payment Method': 'CHEQUE',
+                        'Month': 'February'
+                    }
+                ];
+
+                const ws = XLSX.utils.json_to_sheet(templateData);
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, "Properties");
+                XLSX.writeFile(wb, "property_import_template.xlsx");
+                
+                showAlert('Template downloaded successfully!', 'success');
+            };
+
+            function importData(e) {
+                const file = e.target.files[0];
+                if (!file) return;
+                
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    try {
+                        let importedData;
+                        
+                        if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
+                            const data = new Uint8Array(e.target.result);
+                            const workbook = XLSX.read(data, { type: 'array' });
+                            const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                            importedData = XLSX.utils.sheet_to_json(firstSheet);
+                            
+                            importedData = importedData.map(item => ({
+                                id: Date.now() + Math.floor(Math.random() * 1000),
+                                name: item['Property Name'] || '',
+                                rent: item['Monthly Rent'] || 0,
+                                status: item['Status'] || 'Pending',
+                                paymentMethod: item['Payment Method'] || '',
+                                month: item['Month'] || '',
+                                createdAt: new Date().toISOString(),
+                                updatedAt: new Date().toISOString()
+                            }));
+                        } else {
+                            importedData = JSON.parse(e.target.result);
+                        }
+                        
+                        if (Array.isArray(importedData)) {
+                            const newProperties = importedData.filter(newProp => 
+                                !properties.some(existingProp => 
+                                    existingProp.name.toLowerCase() === newProp.name.toLowerCase() && 
+                                    existingProp.month === newProp.month
+                                )
+                            );
+                            
+                            properties = [...properties, ...newProperties];
+                            saveProperties();
+                            renderProperties();
+                            updatePropertyDropdown();
+                            showAlert(`${newProperties.length} properties imported successfully! ${importedData.length - newProperties.length} duplicates skipped.`, 'success');
+                        } else {
+                            throw new Error('Invalid data format');
+                        }
+                    } catch (error) {
+                        showAlert('Error importing data. Please check the file format.', 'danger');
+                        console.error(error);
+                    }
+                };
+                
+                if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
+                    reader.readAsArrayBuffer(file);
+                } else {
+                    reader.readAsText(file);
+                }
+                
+                fileInput.value = '';
+            }
+
+            function showAlert(message, type) {
+                const alertDiv = document.createElement('div');
+                alertDiv.className = `alert alert-${type} alert-dismissible fade show position-fixed top-0 end-0 m-3`;
+                alertDiv.setAttribute('role', 'alert');
+                alertDiv.innerHTML = `
+                    ${message}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                `;
+                
+                document.body.appendChild(alertDiv);
+                
+                setTimeout(() => {
+                    alertDiv.classList.remove('show');
+                    setTimeout(() => alertDiv.remove(), 150);
+                }, 3000);
+            }
+
+            // Authentication handlers
+            function handleLoginSubmit(e) {
+                e.preventDefault();
+                const email = document.getElementById('loginEmail').value;
+                const password = document.getElementById('loginPassword').value;
+                const rememberMe = document.getElementById('rememberMe').checked;
+                
+                authenticateUser(email, password)
+                    .then(({ token, user }) => {
+                        authToken = token;
+                        isAuthenticated = true;
+                        currentUser = user;
+                        
+                        if (rememberMe) {
+                            localStorage.setItem('propertyAuthToken', token);
+                            localStorage.setItem('rememberMe', 'true');
+                            localStorage.setItem('currentUser', JSON.stringify(user));
+                        }
+                        
+                        showAuthenticatedUI();
+                        initializePropertyManagement();
+                    })
+                    .catch(error => {
+                        showAlert('Invalid email or password', 'danger');
+                    });
+            }
+
+            function handleForgotPassword(e) {
+                e.preventDefault();
+                const email = document.getElementById('loginEmail').value;
+                
+                if (!email) {
+                    showAlert('Please enter your email address first', 'warning');
+                    return;
+                }
+                
+                resetPassword(email)
+                    .then(() => {
+                        showAlert('Password reset instructions sent to your email', 'success');
+                    })
+                    .catch(() => {
+                        showAlert('Error sending reset instructions', 'danger');
+                    });
+            }
+
+            function handleLogout() {
+                localStorage.removeItem('propertyAuthToken');
+                localStorage.removeItem('rememberMe');
+                localStorage.removeItem('currentUser');
+                isAuthenticated = false;
+                authToken = null;
+                currentUser = null;
+                showLoginModal();
+            }
+
+            // Add after DOMContentLoaded
+            const registerModal = new bootstrap.Modal(document.getElementById('registerModal'));
+            const createAccountLink = document.getElementById('createAccountLink');
+            const registerForm = document.getElementById('registerForm');
+
+            createAccountLink.addEventListener('click', function(e) {
+                e.preventDefault();
+                registerModal.show();
+            });
+
+            // Registration logic (mocked, stores in localStorage)
+            registerForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                const email = document.getElementById('registerEmail').value.trim();
+                const password = document.getElementById('registerPassword').value;
+                const password2 = document.getElementById('registerPassword2').value;
+
+                if (password !== password2) {
+                    showAlert('Passwords do not match', 'danger');
+                    return;
+                }
+
+                // Get users from localStorage or use empty array
+                let users = JSON.parse(localStorage.getItem('users')) || [];
+
+                // Check if user already exists
+                if (users.some(u => u.email === email)) {
+                    showAlert('User already exists', 'danger');
+                    return;
+                }
+
+                // Add new user
+                users.push({ email, password }); // In real app, hash the password!
+                localStorage.setItem('users', JSON.stringify(users));
+                showAlert('Account created! You can now log in.', 'success');
+                registerModal.hide();
+            });
+        });
+    </script>
+</body>
+</html>
